@@ -1,8 +1,9 @@
 package spooky;
 
-import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -69,43 +70,43 @@ public final class SpookyModel {
     private double[][] hidden;
     private double[] scratch;
 
-    private SpookyModel(DataInputStream in) throws IOException {
+    private SpookyModel(ByteBuffer in) throws IOException {
         for (byte b : MAGIC) {
-            if (in.readByte() != b) {
+            if (in.get() != b) {
                 throw new IOException("не motor.bin: неверная сигнатура (ожидался ZENMOTOR)");
             }
         }
-        int version = in.readInt();
+        int version = in.getInt();
         if (version != VERSION) {
             throw new IOException("версия формата " + version + ", поддерживается " + VERSION);
         }
-        this.nFeatures = in.readInt();
-        this.mlpHidden = in.readInt();
-        this.gruHidden = in.readInt();
-        this.gruLayers = in.readInt();
-        this.mix = in.readInt();
-        this.latency = in.readInt();
+        this.nFeatures = in.getInt();
+        this.mlpHidden = in.getInt();
+        this.gruHidden = in.getInt();
+        this.gruLayers = in.getInt();
+        this.mix = in.getInt();
+        this.latency = in.getInt();
         if (nFeatures != 47) {
             throw new IOException("модель ждёт " + nFeatures + " признаков, рантайм собирает 47");
         }
-        this.asinhScale = in.readDouble();
-        this.actScaleYaw = in.readDouble();
-        this.actScalePitch = in.readDouble();
-        this.insideSharp = in.readDouble();
-        this.logSigmaMin = in.readDouble();
-        this.logSigmaMax = in.readDouble();
-        this.maxCmdYaw = in.readDouble();
-        this.maxCmdPitch = in.readDouble();
-        this.peakDecay = in.readDouble();
-        this.zeroEps = in.readDouble();
-        this.actQuantRound = in.readUnsignedByte() != 0;
-        this.actResidual = in.readUnsignedByte() != 0;
+        this.asinhScale = in.getDouble();
+        this.actScaleYaw = in.getDouble();
+        this.actScalePitch = in.getDouble();
+        this.insideSharp = in.getDouble();
+        this.logSigmaMin = in.getDouble();
+        this.logSigmaMax = in.getDouble();
+        this.maxCmdYaw = in.getDouble();
+        this.maxCmdPitch = in.getDouble();
+        this.peakDecay = in.getDouble();
+        this.zeroEps = in.getDouble();
+        this.actQuantRound = (in.get() & 0xFF) != 0;
+        this.actResidual = (in.get() & 0xFF) != 0;
 
-        boolean hasEnvelope = in.readUnsignedByte() != 0;
+        boolean hasEnvelope = (in.get() & 0xFF) != 0;
         if (hasEnvelope) {
-            this.envelopeEdges = readDoubles(in, in.readInt());
-            this.envelopeCapsYaw = readDoubles(in, in.readInt());
-            this.envelopeCapsPitch = readDoubles(in, in.readInt());
+            this.envelopeEdges = readDoubles(in, in.getInt());
+            this.envelopeCapsYaw = readDoubles(in, in.getInt());
+            this.envelopeCapsPitch = readDoubles(in, in.getInt());
         } else {
             this.envelopeEdges = null;
             this.envelopeCapsYaw = null;
@@ -115,12 +116,12 @@ public final class SpookyModel {
         this.normMean = readDoubles(in, nFeatures);
         this.normVar = readDoubles(in, nFeatures);
 
-        int inpCount = in.readInt();
+        int inpCount = in.getInt();
         inpW = new double[inpCount][];
         inpB = new double[inpCount][];
         for (int i = 0; i < inpCount; i++) {
-            int rows = in.readInt();
-            int cols = in.readInt();
+            int rows = in.getInt();
+            int cols = in.getInt();
             if (cols != (i == 0 ? nFeatures : mlpHidden)) {
                 throw new IOException("входной слой " + i + ": " + cols + " входов");
             }
@@ -131,7 +132,7 @@ public final class SpookyModel {
             }
         }
 
-        int gruCount = in.readInt();
+        int gruCount = in.getInt();
         if (gruCount != gruLayers) {
             throw new IOException("слоёв GRU " + gruCount + ", в конфиге " + gruLayers);
         }
@@ -140,8 +141,8 @@ public final class SpookyModel {
         gruWhh = new double[gruCount][];
         gruBhh = new double[gruCount][];
         for (int i = 0; i < gruCount; i++) {
-            int hHidden = in.readInt();
-            int inDim = in.readInt();
+            int hHidden = in.getInt();
+            int inDim = in.getInt();
             if (hHidden != gruHidden || inDim != (i == 0 ? mlpHidden : gruHidden)) {
                 throw new IOException("слой GRU " + i + ": " + hHidden + "/" + inDim);
             }
@@ -155,8 +156,8 @@ public final class SpookyModel {
         headB = new double[5][];
         int[] expectRows = {mix, 2 * mix, 2 * mix, mix, 1};
         for (int i = 0; i < 5; i++) {
-            int rows = in.readInt();
-            int cols = in.readInt();
+            int rows = in.getInt();
+            int cols = in.getInt();
             if (cols != gruHidden || rows != expectRows[i]) {
                 throw new IOException("голова " + i + ": " + rows + "x" + cols);
             }
@@ -164,7 +165,7 @@ public final class SpookyModel {
             headB[i] = readDoubles(in, rows);
         }
 
-        int goldenCount = in.readInt();
+        int goldenCount = in.getInt();
         goldenFeatures = new double[goldenCount][];
         goldenPi = new double[goldenCount][];
         goldenMu = new double[goldenCount][];
@@ -178,7 +179,7 @@ public final class SpookyModel {
             goldenMu[i] = readDoubles(in, 2 * mix);
             goldenLogSigma[i] = readDoubles(in, 2 * mix);
             goldenRho[i] = readDoubles(in, mix);
-            goldenPause[i] = in.readDouble();
+            goldenPause[i] = in.getDouble();
             goldenHidden[i] = readDoubles(in, gruLayers * gruHidden);
         }
 
@@ -194,15 +195,15 @@ public final class SpookyModel {
     }
 
     public static SpookyModel load(InputStream stream) throws IOException {
-        try (DataInputStream in = new DataInputStream(new java.io.BufferedInputStream(stream))) {
-            return new SpookyModel(in);
+        try (InputStream in = stream) {
+            return new SpookyModel(ByteBuffer.wrap(in.readAllBytes()).order(ByteOrder.LITTLE_ENDIAN));
         }
     }
 
-    private static double[] readDoubles(DataInputStream in, int count) throws IOException {
+    private static double[] readDoubles(ByteBuffer in, int count) {
         double[] out = new double[count];
         for (int i = 0; i < count; i++) {
-            out[i] = in.readDouble();
+            out[i] = in.getDouble();
         }
         return out;
     }
