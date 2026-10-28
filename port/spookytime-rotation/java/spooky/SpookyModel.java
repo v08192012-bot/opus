@@ -306,13 +306,14 @@ public final class SpookyModel {
         return next;
     }
 
+    /** Плотный слой: w лежит построчно (rows x x.length), b длиной rows. */
     private static double[] linear(double[] w, double[] b, double[] x) {
-        double[] out = new double[w.length];
-        for (int i = 0; i < w.length; i++) {
+        double[] out = new double[b.length];
+        for (int i = 0; i < b.length; i++) {
             double acc = b[i];
-            double[] row = w[i];
+            int offset = i * x.length;
             for (int j = 0; j < x.length; j++) {
-                acc += row[j] * x[j];
+                acc += w[offset + j] * x[j];
             }
             out[i] = acc;
         }
