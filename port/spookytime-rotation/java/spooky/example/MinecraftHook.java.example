@@ -1,0 +1,76 @@
+// Скелет интеграции порта в Minecraft-клиент (Yarn 1.21.x).
+// Файл не компилируется в этом проекте -- это шпаргалка для переноса.
+// Скопируйте в свой клиент, оставьте только нужные импорты и уберите TODO.
+
+import java.util.Random;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.util.math.Box;
+import spooky.MathX;
+import spooky.Rotation;
+import spooky.SpookyModel;
+import spooky.SpookyRotation;
+
+public final class MinecraftHook {
+
+    private static final MinecraftClient mc = MinecraftClient.getInstance();
+
+    private static SpookyModel model;          // грузится 1 раз (можно асинхронно, как в оригинале)
+    private static SpookyRotation aim;
+    private static Rotation current;           // тихая ротация, null == "не активно"
+
+    public static void init() throws Exception {
+        model = SpookyModel.load(MinecraftHook.class.getResourceAsStream("/models/motor.bin"));
+        aim = new SpookyRotation(model, MathX.pixelStep(mc.options.getMouseSensitivity().getValue()), new Random());
+    }
+
+    /** Вызывать раз в тик ДО того, как формируются пакеты движения (в моде -- HandleInputPostEvent). */
+    public static void onTick(LivingEntity target) {
+        if (target == null || !target.isAlive() || mc.player == null) {
+            aim.reset();
+            current = null;
+            return;
+        }
+
+        Rotation from = current != null ? current : new Rotation(mc.player.getYaw(), mc.player.getPitch());
+        Rotation next = aim.tick(from, toTarget(target), playerState(), mc.player.age);
+
+        // 1 тик = 1 тик ротации: если модель ничего не решила, оставляем как было
+        current = next;
+
+        // если прицел уже почти на цели -- можно отпустить тихую ротацию
+        if (next.distanceTo(new Rotation(mc.player.getYaw(), mc.player.getPitch())) <= 9.0) {
+            mc.player.setYaw(next.yaw);
+            mc.player.setPitch(next.pitch);
+            current = null;
+        }
+    }
+
+    /** Подмена ротации в исходящем пакете движения (silent rotation). */
+    public static Rotation applyToPacket(Rotation real) {
+        return current != null ? current : real;
+    }
+
+    private static SpookyRotation.Target toTarget(LivingEntity entity) {
+        Box box = entity.getBoundingBox();     // в оригинале: PlayerSimulation-предсказание либо ReachV3
+        return new SpookyRotation.Target(
+                entity.getId(), entity.isAlive(),
+                box.minX, box.minY, box.minZ,
+                box.maxX, box.maxY, box.maxZ);
+    }
+
+    private static SpookyRotation.PlayerState playerState() {
+        return new SpookyRotation.PlayerState(
+                mc.player.getEyePos().x, mc.player.getEyePos().y, mc.player.getEyePos().z,
+                mc.options.forwardKey.isPressed(),
+                mc.options.backKey.isPressed(),
+                mc.options.leftKey.isPressed(),
+                mc.options.rightKey.isPressed(),
+                mc.options.jumpKey.isPressed(),
+                mc.player.isOnGround(),
+                mc.player.isSprinting(),
+                mc.player.isInSneakingPose(),
+                mc.player.getAttackCooldownProgress(0.0F),
+                mc.player.ticksSinceLastAttack);
+    }
+}

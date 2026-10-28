@@ -45,7 +45,12 @@ jobs:
 
       - name: Run self-test
         working-directory: port/spookytime-rotation
-        run: java -cp out spooky.SelfTest model/motor.bin
+        run: |
+          set -o pipefail
+          java -cp out spooky.SelfTest model/motor.bin | tee selftest.log
+          while IFS= read -r line; do
+            [ -n "$line" ] && echo "::notice::$line"
+          done < selftest.log
 
       - name: Check committed binary matches the model
         working-directory: port/spookytime-rotation
