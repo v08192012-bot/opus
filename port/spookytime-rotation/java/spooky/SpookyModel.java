@@ -1,0 +1,382 @@
+package spooky;
+
+import java.io.DataInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+/**
+ * Нейросетевая часть SpokyTime-ротации (в моде это класс Motor, формат neurotest-motor-v1).
+ *
+ * Схема: нормировка -> 2 линейных слоя с SiLU -> 2 слоя GRU (256) -> головы смеси
+ * (pi, mu, log_sigma, rho, pause). На каждом тике модель получает 47 признаков
+ * (см. {@link SpookyRotation}) и выдаёт параметры распределения действия.
+ *
+ * Состояние GRU внутреннее: один экземпляр = одна непрерывная последовательность.
+ * {@link #reset()} обязателен при смене цели/разрыве тиков (см. {@link SpookyRotation}).
+ */
+public final class SpookyModel {
+    private static final byte[] MAGIC = {'Z', 'E', 'N', 'M', 'O', 'T', 'O', 'R'};
+    private static final int VERSION = 1;
+
+    public final int nFeatures;
+    public final int mlpHidden;
+    public final int gruHidden;
+    public final int gruLayers;
+    public final int mix;
+    public final int latency;
+    public final double asinhScale;
+    public final double actScaleYaw;
+    public final double actScalePitch;
+    public final double insideSharp;
+    public final double logSigmaMin;
+    public final double logSigmaMax;
+    public final double maxCmdYaw;
+    public final double maxCmdPitch;
+    public final double peakDecay;
+    public final double zeroEps;
+    public final boolean actQuantRound;
+    public final boolean actResidual;
+
+    /** Огибающая амплитуды: границы (в "пикселях") и лимиты скорости для yaw/pitch. */
+    public final double[] envelopeEdges;
+    public final double[] envelopeCapsYaw;
+    public final double[] envelopeCapsPitch;
+
+    private final double[] normMean;
+    private final double[] normVar;
+    private final double[][] inpW;
+    private final double[][] inpB;
+    private final double[][] gruWih;
+    private final double[][] gruBih;
+    private final double[][] gruWhh;
+    private final double[][] gruBhh;
+    private final double[][] headW;      // pi, mu, log_sigma, rho, pause
+    private final double[][] headB;
+    private final double[][] goldenFeatures;
+    private final double[][] goldenPi;
+    private final double[][] goldenMu;
+    private final double[][] goldenLogSigma;
+    private final double[][] goldenRho;
+    private final double[] goldenPause;
+    private final double[][] goldenHidden;
+
+    /** Ограничитель амплитуды команды в asinh-пространстве (как в моде). */
+    private final double maxCmdYawAsinh;
+    private final double maxCmdPitchAsinh;
+
+    private double[][] hidden;
+    private double[] scratch;
+
+    private SpookyModel(DataInputStream in) throws IOException {
+        for (byte b : MAGIC) {
+            if (in.readByte() != b) {
+                throw new IOException("не motor.bin: неверная сигнатура (ожидался ZENMOTOR)");
+            }
+        }
+        int version = in.readInt();
+        if (version != VERSION) {
+            throw new IOException("версия формата " + version + ", поддерживается " + VERSION);
+        }
+        this.nFeatures = in.readInt();
+        this.mlpHidden = in.readInt();
+        this.gruHidden = in.readInt();
+        this.gruLayers = in.readInt();
+        this.mix = in.readInt();
+        this.latency = in.readInt();
+        if (nFeatures != 47) {
+            throw new IOException("модель ждёт " + nFeatures + " признаков, рантайм собирает 47");
+        }
+        this.asinhScale = in.readDouble();
+        this.actScaleYaw = in.readDouble();
+        this.actScalePitch = in.readDouble();
+        this.insideSharp = in.readDouble();
+        this.logSigmaMin = in.readDouble();
+        this.logSigmaMax = in.readDouble();
+        this.maxCmdYaw = in.readDouble();
+        this.maxCmdPitch = in.readDouble();
+        this.peakDecay = in.readDouble();
+        this.zeroEps = in.readDouble();
+        this.actQuantRound = in.readUnsignedByte() != 0;
+        this.actResidual = in.readUnsignedByte() != 0;
+
+        boolean hasEnvelope = in.readUnsignedByte() != 0;
+        if (hasEnvelope) {
+            this.envelopeEdges = readDoubles(in, in.readInt());
+            this.envelopeCapsYaw = readDoubles(in, in.readInt());
+            this.envelopeCapsPitch = readDoubles(in, in.readInt());
+        } else {
+            this.envelopeEdges = null;
+            this.envelopeCapsYaw = null;
+            this.envelopeCapsPitch = null;
+        }
+
+        this.normMean = readDoubles(in, nFeatures);
+        this.normVar = readDoubles(in, nFeatures);
+
+        int inpCount = in.readInt();
+        inpW = new double[inpCount][];
+        inpB = new double[inpCount][];
+        for (int i = 0; i < inpCount; i++) {
+            int rows = in.readInt();
+            int cols = in.readInt();
+            if (cols != (i == 0 ? nFeatures : mlpHidden)) {
+                throw new IOException("входной слой " + i + ": " + cols + " входов");
+            }
+            inpW[i] = readDoubles(in, rows * cols);
+            inpB[i] = readDoubles(in, rows);
+            if (rows != mlpHidden) {
+                throw new IOException("входной слой " + i + ": " + rows + " выходов вместо " + mlpHidden);
+            }
+        }
+
+        int gruCount = in.readInt();
+        if (gruCount != gruLayers) {
+            throw new IOException("слоёв GRU " + gruCount + ", в конфиге " + gruLayers);
+        }
+        gruWih = new double[gruCount][];
+        gruBih = new double[gruCount][];
+        gruWhh = new double[gruCount][];
+        gruBhh = new double[gruCount][];
+        for (int i = 0; i < gruCount; i++) {
+            int hHidden = in.readInt();
+            int inDim = in.readInt();
+            if (hHidden != gruHidden || inDim != (i == 0 ? mlpHidden : gruHidden)) {
+                throw new IOException("слой GRU " + i + ": " + hHidden + "/" + inDim);
+            }
+            gruWih[i] = readDoubles(in, 3 * gruHidden * inDim);
+            gruBih[i] = readDoubles(in, 3 * gruHidden);
+            gruWhh[i] = readDoubles(in, 3 * gruHidden * gruHidden);
+            gruBhh[i] = readDoubles(in, 3 * gruHidden);
+        }
+
+        headW = new double[5][];
+        headB = new double[5][];
+        int[] expectRows = {mix, 2 * mix, 2 * mix, mix, 1};
+        for (int i = 0; i < 5; i++) {
+            int rows = in.readInt();
+            int cols = in.readInt();
+            if (cols != gruHidden || rows != expectRows[i]) {
+                throw new IOException("голова " + i + ": " + rows + "x" + cols);
+            }
+            headW[i] = readDoubles(in, rows * cols);
+            headB[i] = readDoubles(in, rows);
+        }
+
+        int goldenCount = in.readInt();
+        goldenFeatures = new double[goldenCount][];
+        goldenPi = new double[goldenCount][];
+        goldenMu = new double[goldenCount][];
+        goldenLogSigma = new double[goldenCount][];
+        goldenRho = new double[goldenCount][];
+        goldenPause = new double[goldenCount];
+        goldenHidden = new double[goldenCount][];
+        for (int i = 0; i < goldenCount; i++) {
+            goldenFeatures[i] = readDoubles(in, nFeatures);
+            goldenPi[i] = readDoubles(in, mix);
+            goldenMu[i] = readDoubles(in, 2 * mix);
+            goldenLogSigma[i] = readDoubles(in, 2 * mix);
+            goldenRho[i] = readDoubles(in, mix);
+            goldenPause[i] = in.readDouble();
+            goldenHidden[i] = readDoubles(in, gruLayers * gruHidden);
+        }
+
+        this.maxCmdYawAsinh = MathX.asinh(maxCmdYaw / actScaleYaw);
+        this.maxCmdPitchAsinh = MathX.asinh(maxCmdPitch / actScalePitch);
+        reset();
+    }
+
+    public static SpookyModel load(Path path) throws IOException {
+        try (InputStream in = Files.newInputStream(path)) {
+            return load(in);
+        }
+    }
+
+    public static SpookyModel load(InputStream stream) throws IOException {
+        try (DataInputStream in = new DataInputStream(new java.io.BufferedInputStream(stream))) {
+            return new SpookyModel(in);
+        }
+    }
+
+    private static double[] readDoubles(DataInputStream in, int count) throws IOException {
+        double[] out = new double[count];
+        for (int i = 0; i < count; i++) {
+            out[i] = in.readDouble();
+        }
+        return out;
+    }
+
+    /** Сброс внутреннего состояния GRU (новая цель, телепорт, пауза). */
+    public void reset() {
+        this.hidden = new double[gruLayers][gruHidden];
+        this.scratch = null;
+    }
+
+    /** asinh-границы команды (используются при сэмплировании). */
+    public double maxCmdYawAsinh() {
+        return maxCmdYawAsinh;
+    }
+
+    public double maxCmdPitchAsinh() {
+        return maxCmdPitchAsinh;
+    }
+
+    public boolean hasEnvelope() {
+        return envelopeEdges != null && envelopeCapsYaw != null && envelopeCapsPitch != null;
+    }
+
+    /**
+     * Лимит скорости для оси (0 = yaw, 1 = pitch) при текущей "скорости" в пикселях за тик.
+     * Куски огибающей интерполируются ступенькой, как в моде.
+     */
+    public double envelopeCap(int axis, double countsPerTick) {
+        double[] caps = axis == 0 ? envelopeCapsYaw : envelopeCapsPitch;
+        int idx = 0;
+        while (idx < envelopeEdges.length && envelopeEdges[idx] < countsPerTick) {
+            idx++;
+        }
+        return caps[Math.min(idx, caps.length - 1)];
+    }
+
+    /** Результат одного тика: параметры смеси + скрытое состояние. */
+    public static final class Step {
+        public final double[] pi;
+        public final double[][] mu;
+        public final double[][] logSigma;
+        public final double[] rho;
+        public final double pause;
+        final double[] hiddenOut;
+
+        Step(double[] pi, double[][] mu, double[][] logSigma, double[] rho, double pause, double[] hiddenOut) {
+            this.pi = pi;
+            this.mu = mu;
+            this.logSigma = logSigma;
+            this.rho = rho;
+            this.pause = pause;
+            this.hiddenOut = hiddenOut;
+        }
+    }
+
+    /** Один шаг сети. Состояние GRU обновляется. */
+    public Step step(double[] features) {
+        if (features.length != nFeatures) {
+            throw new IllegalArgumentException("нужно " + nFeatures + " признаков, пришло " + features.length);
+        }
+        double[] x = new double[nFeatures];
+        for (int i = 0; i < nFeatures; i++) {
+            x[i] = (features[i] - normMean[i]) / Math.sqrt(normVar[i] + 1.0E-4);
+        }
+        for (int layer = 0; layer < inpW.length; layer++) {
+            x = linear(inpW[layer], inpB[layer], x);
+            for (int i = 0; i < x.length; i++) {
+                x[i] = MathX.silu(x[i]);
+            }
+        }
+        for (int layer = 0; layer < gruLayers; layer++) {
+            x = gruStep(layer, x);
+        }
+        Step step = new Step(
+                linear(headW[0], headB[0], x),
+                reshape(linear(headW[1], headB[1], x), 2),
+                reshape(linear(headW[2], headB[2], x), 2),
+                linear(headW[3], headB[3], x),
+                linear(headW[4], headB[4], x)[0],
+                flatten(hidden));
+        for (int k = 0; k < mix; k++) {
+            step.logSigma[k][0] = MathX.clamp(step.logSigma[k][0], logSigmaMin, logSigmaMax);
+            step.logSigma[k][1] = MathX.clamp(step.logSigma[k][1], logSigmaMin, logSigmaMax);
+            step.rho[k] = Math.tanh(step.rho[k]) * 0.95;
+        }
+        return step;
+    }
+
+    private double[] gruStep(int layer, double[] input) {
+        double[] n = linear(gruWih[layer], gruBih[layer], input);
+        double[] g = linear(gruWhh[layer], gruBhh[layer], hidden[layer]);
+        double[] prev = hidden[layer];
+        double[] next = new double[gruHidden];
+        for (int j = 0; j < gruHidden; j++) {
+            double r = MathX.sigmoid(n[j] + g[j]);
+            double z = MathX.sigmoid(n[gruHidden + j] + g[gruHidden + j]);
+            double cand = Math.tanh(n[2 * gruHidden + j] + r * g[2 * gruHidden + j]);
+            next[j] = (1.0 - z) * cand + z * prev[j];
+        }
+        hidden[layer] = next;
+        return next;
+    }
+
+    private static double[] linear(double[] w, double[] b, double[] x) {
+        double[] out = new double[w.length];
+        for (int i = 0; i < w.length; i++) {
+            double acc = b[i];
+            double[] row = w[i];
+            for (int j = 0; j < x.length; j++) {
+                acc += row[j] * x[j];
+            }
+            out[i] = acc;
+        }
+        return out;
+    }
+
+    private static double[][] reshape(double[] flat, int width) {
+        int rows = flat.length / width;
+        double[][] out = new double[rows][width];
+        for (int r = 0; r < rows; r++) {
+            System.arraycopy(flat, r * width, out[r], 0, width);
+        }
+        return out;
+    }
+
+    private static double[] flatten(double[][] rows) {
+        int per = rows[0].length;
+        double[] out = new double[rows.length * per];
+        for (int i = 0; i < rows.length; i++) {
+            System.arraycopy(rows[i], 0, out, i * per, per);
+        }
+        return out;
+    }
+
+    // --- доступ к эталонным тикам для самопроверки ---
+
+    public int goldenCount() {
+        return goldenFeatures.length;
+    }
+
+    public double[] goldenFeatures(int i) {
+        return goldenFeatures[i].clone();
+    }
+
+    public Step goldenExpected(int i) {
+        return new Step(goldenPi[i], reshape(goldenMu[i], 2), reshape(goldenLogSigma[i], 2),
+                goldenRho[i], goldenPause[i], goldenHidden[i]);
+    }
+
+    /** Максимальное расхождение forward-pass с эталоном (должно быть ~1e-15). */
+    public double selfCheck() {
+        reset();
+        double worst = 0.0;
+        for (int i = 0; i < goldenCount(); i++) {
+            Step got = step(goldenFeatures(i));
+            Step want = goldenExpected(i);
+            worst = Math.max(worst, maxDelta(got.pi, want.pi));
+            for (int k = 0; k < mix; k++) {
+                worst = Math.max(worst, maxDelta(got.mu[k], want.mu[k]));
+                worst = Math.max(worst, maxDelta(got.logSigma[k], want.logSigma[k]));
+                worst = Math.max(worst, Math.abs(got.rho[k] - want.rho[k]));
+            }
+            worst = Math.max(worst, Math.abs(got.pause - want.pause));
+            worst = Math.max(worst, maxDelta(got.hiddenOut, want.hiddenOut));
+        }
+        reset();
+        return worst;
+    }
+
+    static double maxDelta(double[] a, double[] b) {
+        double worst = 0.0;
+        for (int i = 0; i < a.length; i++) {
+            worst = Math.max(worst, Math.abs(a[i] - b[i]));
+        }
+        return worst;
+    }
+}

@@ -1,0 +1,11 @@
+# gradle / loom
+.gradle/
+build/
+run/
+out/
+*.log
+
+# локальные артефакты сборки мода
+port/spookytime-rotation/out/
+__pycache__/
+*.pyc
