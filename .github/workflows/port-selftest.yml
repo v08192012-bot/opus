@@ -31,9 +31,17 @@ jobs:
       - name: Compile standalone port
         working-directory: port/spookytime-rotation
         run: |
-          set -euo pipefail
           mkdir -p out
-          javac -Xlint:all -d out $(find java -name '*.java')
+          set +e
+          javac -Xlint:all -d out $(find java -name '*.java') > javac.log 2>&1
+          code=$?
+          cat javac.log
+          if [ $code -ne 0 ]; then
+            while IFS= read -r line; do
+              [ -n "$line" ] && echo "::error::$line"
+            done < javac.log
+          fi
+          exit $code
 
       - name: Run self-test
         working-directory: port/spookytime-rotation
