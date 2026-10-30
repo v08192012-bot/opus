@@ -13,6 +13,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import org.zenith.client.modules.impl.render.NoRenderModule;
+import org.zenith.client.modules.impl.render.RemovalsModule;
 import org.zenith.utility.mixin.accessors.ParticleAccessor;
 
 @Mixin({ParticleManager.class})
@@ -53,6 +54,33 @@ public class MixinParticleManager {
       ParticleEffect var1, double var2, double var4, double var6, double var8, double var10, double var12, CallbackInfoReturnable<Particle> var14
    ) {
       if (var1.getType() == ParticleTypes.TOTEM_OF_UNDYING && NoRenderModule.INSTANCE.method4532()) {
+         var14.setReturnValue(null);
+      }
+   }
+
+   @Inject(
+      method = {"addParticle(Lnet/minecraft/particle/ParticleEffect;DDDDDD)Lnet/minecraft/client/particle/Particle;"},
+      at = {@At("HEAD")},
+      cancellable = true
+   )
+   private void zenith$dropRemovalsParticle(
+      ParticleEffect var1, double var2, double var4, double var6, double var8, double var10, double var12, CallbackInfoReturnable<Particle> var14
+   ) {
+      if (RemovalsModule.isParticleRemoved(var1)) {
+         var14.setReturnValue(null);
+      }
+   }
+
+   @Inject(
+      method = {"addParticle(Lnet/minecraft/particle/ParticleEffect;DDDDDD)Lnet/minecraft/client/particle/Particle;"},
+      at = {@At("HEAD")},
+      cancellable = true
+   )
+   private void zenith$dropBlockParticle(
+      ParticleEffect var1, double var2, double var4, double var6, double var8, double var10, double var12, CallbackInfoReturnable<Particle> var14
+   ) {
+      if (RemovalsModule.isRemoved("module.removals.element.blockParticles")
+         && (var1.getType() == ParticleTypes.BLOCK || var1.getType() == ParticleTypes.BLOCK_MARKER || var1.getType() == ParticleTypes.ITEM)) {
          var14.setReturnValue(null);
       }
    }

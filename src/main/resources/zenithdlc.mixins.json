@@ -145,7 +145,8 @@
     "optimization.MixinOptMapTexture",
     "optimization.MixinOptMapRenderState",
     "optimization.MixinOptMapRenderer",
-    "optimization.MixinOptDrawContextMap"
+    "optimization.MixinOptDrawContextMap",
+    "render.MixinEntityRenderManager"
   ],
   "injectors": {
     "defaultRequire": 1

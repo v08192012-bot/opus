@@ -11,6 +11,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.zenith.client.modules.impl.render.RemovalsModule;
 import org.zenith.utility.game.NoRenderBlocks;
 import org.zenith.utility.render.CrystalAnimation;
 
@@ -24,7 +25,7 @@ public class MixinBlockRenderManager {
    private void zenith$thinGrass(
       BlockState var1, BlockPos var2, BlockRenderView var3, MatrixStack var4, VertexConsumer var5, boolean var6, List<?> var7, CallbackInfo var8
    ) {
-      if (NoRenderBlocks.method5237(var1, var2) || CrystalAnimation.method4460(var1)) {
+      if (NoRenderBlocks.method5237(var1, var2) || CrystalAnimation.method4460(var1) || RemovalsModule.isBlockHidden(var1.getBlock())) {
          var8.cancel();
       }
    }
