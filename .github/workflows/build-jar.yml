@@ -60,6 +60,9 @@ jobs:
           unzip -l "$JAR" | grep -q "zenithdlc.mixins.json" || { echo "::error::zenithdlc.mixins.json отсутствует в jar"; exit 1; }
           unzip -l "$JAR" | grep -q "org/zenith/init/ZenithInitializer.class" || { echo "::error::главный класс мода отсутствует в jar"; exit 1; }
           unzip -l "$JAR" | grep -q "META-INF/jars/ViaFabricPlus" || { echo "::error::вложенные моды (META-INF/jars) отсутствуют в jar"; exit 1; }
+          unzip -l "$JAR" | grep -q "org/zenith/client/modules/impl/movement/ElytraSwapModule.class" || { echo "::error::ElytraSwapModule не попал в jar"; exit 1; }
+          unzip -l "$JAR" | grep -q "org/zenith/client/modules/impl/render/RemovalsModule.class" || { echo "::error::RemovalsModule не попал в jar"; exit 1; }
+          unzip -l "$JAR" | grep -q "org/zenith/utility/mixin/render/MixinEntityRenderManager.class" || { echo "::error::MixinEntityRenderManager не попал в jar"; exit 1; }
 
           {
             echo "### Собранный jar"

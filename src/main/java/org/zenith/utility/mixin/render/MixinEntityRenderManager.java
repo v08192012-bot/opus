@@ -15,7 +15,8 @@ public class MixinEntityRenderManager {
    @Inject(
       method = {"shouldRender(Lnet/minecraft/entity/Entity;Lnet/minecraft/client/render/Frustum;DDD)Z"},
       at = {@At("HEAD")},
-      cancellable = true
+      cancellable = true,
+      require = 0
    )
    private void zenith$hideEntity(Entity entity, Frustum frustum, double x, double y, double z, CallbackInfoReturnable<Boolean> info) {
       if (RemovalsModule.isEntityHidden(entity)) {
