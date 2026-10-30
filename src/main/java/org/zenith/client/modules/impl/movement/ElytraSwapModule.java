@@ -2,8 +2,6 @@ package org.zenith.client.modules.impl.movement;
 
 import com.darkmagician6.eventapi.EventTarget;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import net.minecraft.client.network.ClientPlayNetworkHandler;
 import net.minecraft.client.network.ClientPlayerEntity;
@@ -366,11 +364,6 @@ public final class ElytraSwapModule extends Module {
          this.queue.poll();
          first.action.run();
       }
-   }
-
-   public List<String> describeTiming() {
-      Timing timing = this.timing();
-      return new ArrayList<>(Arrays.asList(String.valueOf(timing.first), String.valueOf(timing.armor), String.valueOf(timing.back)));
    }
 
    private static final class Delayed {
