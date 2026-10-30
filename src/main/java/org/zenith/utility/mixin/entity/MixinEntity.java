@@ -17,6 +17,7 @@ import org.zenith.Zenith;
 import org.zenith.client.events.MovementCorrectionEvent;
 import org.zenith.client.modules.impl.render.AntiInvisibleModule;
 import org.zenith.client.modules.impl.render.PredictionsModule;
+import org.zenith.client.modules.impl.render.RemovalsModule;
 import org.zenith.client.modules.impl.render.ShaderESPModule;
 import org.zenith.utility.game.Util4;
 import org.zenith.utility.misc.Handler6;
@@ -97,7 +98,9 @@ public abstract class MixinEntity implements MinecraftAccess {
    )
    private void zenith$shaderEspGlowing(CallbackInfoReturnable<Boolean> var1) {
       Entity var2 = (Entity)(Object)this;
-      if (Util4.method1278(var2.getId())) {
+      if (var2 instanceof net.minecraft.entity.player.PlayerEntity && RemovalsModule.isRemoved("module.removals.element.playerGlow")) {
+         var1.setReturnValue(false);
+      } else if (Util4.method1278(var2.getId())) {
          var1.setReturnValue(true);
       } else {
          ShaderESPModule var3 = ShaderESPModule.INSTANCE;

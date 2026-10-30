@@ -7,6 +7,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.zenith.client.hud.WatermarkIslandHud;
+import org.zenith.client.modules.impl.render.RemovalsModule;
 
 @Mixin({BossBarHud.class})
 public class MixinBossBarHud {
@@ -16,7 +17,7 @@ public class MixinBossBarHud {
       cancellable = true
    )
    private void zenith$islandTakesOver(DrawContext var1, CallbackInfo var2) {
-      if (WatermarkIslandHud.method5669()) {
+      if (WatermarkIslandHud.method5669() || RemovalsModule.isRemoved("module.removals.element.bossbar")) {
          var2.cancel();
       }
    }

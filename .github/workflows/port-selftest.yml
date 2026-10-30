@@ -1,0 +1,59 @@
+name: Port self-test (spookytime rotation)
+
+on:
+  push:
+    branches:
+      - 'arena/**'
+      - 'main'
+    paths:
+      - 'port/spookytime-rotation/**'
+      - 'src/main/resources/models/motor.json'
+      - '.github/workflows/port-selftest.yml'
+  workflow_dispatch:
+
+jobs:
+  selftest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Convert model + validate golden ticks (python reference)
+        working-directory: port/spookytime-rotation
+        run: |
+          set -euo pipefail
+          python3 tools/convert_model.py
+
+      - name: Compile standalone port
+        working-directory: port/spookytime-rotation
+        run: |
+          mkdir -p out
+          set +e
+          javac -Xlint:all -d out $(find java -name '*.java') > javac.log 2>&1
+          code=$?
+          cat javac.log
+          if [ $code -ne 0 ]; then
+            while IFS= read -r line; do
+              [ -n "$line" ] && echo "::error::$line"
+            done < javac.log
+          fi
+          exit $code
+
+      - name: Run self-test
+        working-directory: port/spookytime-rotation
+        run: |
+          set -o pipefail
+          java -cp out spooky.SelfTest model/motor.bin | tee selftest.log
+          while IFS= read -r line; do
+            [ -n "$line" ] && echo "::notice::$line"
+          done < selftest.log
+
+      - name: Check committed binary matches the model
+        working-directory: port/spookytime-rotation
+        run: |
+          set -euo pipefail
+          sha256sum model/motor.bin
