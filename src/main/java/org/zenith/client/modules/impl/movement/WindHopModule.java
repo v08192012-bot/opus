@@ -77,6 +77,8 @@ public final class WindHopModule extends Module {
    private float yaw;
    private float fromPitch;
    private float toPitch;
+   /** Прицел камеры до бинда — к нему возвращаемся после прыжка. */
+   private float originalPitch;
 
    private WindHopModule() {
    }
@@ -157,6 +159,7 @@ public final class WindHopModule extends Module {
       this.chargeMovedIntoHotbar = false;
       this.yaw = rotationManager.method7844().getFloatValue();
       this.fromPitch = MathHelper.clamp(rotationManager.method7844().getFloatValue2(), -89.0F, 89.0F);
+      this.originalPitch = MathHelper.clamp(mc.player.getPitch(), -90.0F, 90.0F);
       this.toPitch = this.lookPitch.getValue3();
       this.ticks = 0;
       this.phase = Phase.ROTATING;
@@ -282,7 +285,7 @@ public final class WindHopModule extends Module {
       this.phase = Phase.RETURNING;
       this.ticks = 0;
       this.fromPitch = MathHelper.clamp(rotationManager.method7844().getFloatValue2(), -90.0F, 90.0F);
-      this.toPitch = MathHelper.clamp(mc.player.getPitch(), -90.0F, 90.0F);
+      this.toPitch = this.originalPitch;
       this.yaw = mc.player.getYaw();
    }
 

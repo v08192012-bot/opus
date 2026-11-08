@@ -63,6 +63,7 @@ jobs:
           unzip -l "$JAR" | grep -q "org/zenith/client/modules/impl/movement/ElytraSwapModule.class" || { echo "::error::ElytraSwapModule не попал в jar"; exit 1; }
           unzip -l "$JAR" | grep -q "org/zenith/client/modules/impl/render/RemovalsModule.class" || { echo "::error::RemovalsModule не попал в jar"; exit 1; }
           unzip -l "$JAR" | grep -q "org/zenith/utility/mixin/render/MixinEntityRenderManager.class" || { echo "::error::MixinEntityRenderManager не попал в jar"; exit 1; }
+          unzip -l "$JAR" | grep -q "org/zenith/client/modules/impl/movement/WindHopModule.class" || { echo "::error::WindHopModule не попал в jar"; exit 1; }
 
           {
             echo "### Собранный jar"
