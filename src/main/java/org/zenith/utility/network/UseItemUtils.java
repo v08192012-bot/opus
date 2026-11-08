@@ -49,6 +49,7 @@ import org.zenith.Zenith;
 import org.zenith.ZenithAccess;
 import org.zenith.client.settings.BindSetting;
 import org.zenith.utility.game.ArmorSlots;
+import org.zenith.utility.game.NameTagHealth;
 import org.zenith.utility.misc.ColorUtils;
 
 public final class UseItemUtils implements ZenithAccess {
@@ -216,23 +217,36 @@ public final class UseItemUtils implements ZenithAccess {
       }
    }
 
+   /**
+    * Здоровье сущности для HUD/ESP.
+    *
+    * Для игроков ванильное значение бесполезно (клиент не получает чужое HP и всегда видит 20),
+    * поэтому сначала берём то, что сервер сам рисует в неймтеге, и только если там пусто —
+    * обычное значение клиента.
+    */
    public static float method6527(LivingEntity var0) {
       float var1 = var0.getHealth() + var0.getAbsorptionAmount();
       if (var0 instanceof PlayerEntity var2) {
-         String var3 = Zenith.getInstance().getServerDetector().getText();
-         switch (var3) {
+         float var3 = NameTagHealth.read(var2);
+         if (!Float.isNaN(var3)) {
+            return var3;
+         }
+
+         // старый путь для серверов, где HP лежит в score под ником (FunTime/ReallyWorld)
+         String var4 = Zenith.getInstance().getServerDetector().getText();
+         switch (var4) {
             case "FunTime":
             case "ReallyWorld":
-               ScoreboardObjective var5 = var2.getEntityWorld().getScoreboard().getObjectiveForSlot(ScoreboardDisplaySlot.BELOW_NAME);
-               if (var5 != null) {
-                  ReadableScoreboardScore var6 = var2.getEntityWorld().getScoreboard().getScore(var2, var5);
-                  if (var6 != null) {
-                     MutableText var7 = ReadableScoreboardScore.getFormattedScore(var6, var5.getNumberFormatOr(StyledNumberFormat.EMPTY));
-                     String var8 = ColorUtils.method6438(var7.getString());
-                     if (var8 != null && method6528(var8.trim())) {
+               ScoreboardObjective var6 = var2.getEntityWorld().getScoreboard().getObjectiveForSlot(ScoreboardDisplaySlot.BELOW_NAME);
+               if (var6 != null) {
+                  ReadableScoreboardScore var7 = var2.getEntityWorld().getScoreboard().getScore(var2, var6);
+                  if (var7 != null) {
+                     MutableText var8 = ReadableScoreboardScore.getFormattedScore(var7, var6.getNumberFormatOr(StyledNumberFormat.EMPTY));
+                     String var9 = ColorUtils.method6438(var8.getString());
+                     if (var9 != null && method6528(var9.trim())) {
                         try {
-                           var1 = Float.parseFloat(var8);
-                        } catch (NumberFormatException var10) {
+                           var1 = Float.parseFloat(var9);
+                        } catch (NumberFormatException var11) {
                         }
                      }
                   }
@@ -241,6 +255,20 @@ public final class UseItemUtils implements ZenithAccess {
       }
 
       return var1;
+   }
+
+   /** Строка HP для чипов: «?» у невидимого игрока, иначе число из неймтега. */
+   public static String method6535(LivingEntity var0) {
+      if (var0 instanceof PlayerEntity var1) {
+         return NameTagHealth.display(var1, method6527(var1));
+      }
+
+      return var0.getHealth() + var0.getAbsorptionAmount() >= 0.0F ? method6532(method6527(var0)) : null;
+   }
+
+   /** HP невидимого игрока сервер не отдаёт — показываем «?». */
+   public static boolean method6536(LivingEntity var0) {
+      return var0 instanceof PlayerEntity var1 && var1.isInvisible();
    }
 
    private static boolean method6528(String var0) {

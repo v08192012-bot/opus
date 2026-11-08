@@ -1104,14 +1104,18 @@ public final class EntityESPModule extends Module {
                   : Text.literal(NameProtectModule.method5141());
                float var10 = var2.getFloatValue();
                if (!var2.flag10) {
-                  var2.text4 = var2.isFlag5() ? this.method618(var2.getIntValue()) : (var10 >= 0.0F ? UseItemUtils.method6532(var10) : null);
+                  // у игроков HP берём из серверного неймтега, а у невидимых его нет — рисуем «?»
+                  var2.text4 = var2.isFlag5()
+                     ? this.method618(var2.getIntValue())
+                     : (var2.getEntity() instanceof PlayerEntity var19x ? UseItemUtils.method6535(var19x) : (var10 >= 0.0F ? UseItemUtils.method6532(var10) : null));
                   var2.flag10 = true;
                }
 
                String var11 = var2.text4;
+               boolean var19 = var11 != null && var11.equals("?");
                ZenithColor var12 = var2.isFlag5()
                   ? var6.getPrimaryColor().getZenithColor()
-                  : (var10 >= 0.0F ? this.method617(var10) : var6.getTextEnable().getZenithColor());
+                  : (var19 ? var6.getTextSecondary().getZenithColor() : (var10 >= 0.0F ? this.method617(var10) : var6.getTextEnable().getZenithColor()));
                ZenithColor var13 = var7 ? var6.getFriendColor().getZenithColor().method7296(0.5F) : var6.getHudBackground().getZenithColor();
                float var14 = this.method552(var2);
                this.method587(

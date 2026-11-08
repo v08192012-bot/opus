@@ -74,13 +74,14 @@ public class TargetHud extends Interface {
    private void method7233(MenuDrawContext var1, LivingEntity var2, float var3) {
       ZenithStyle var4 = HudListLayout.style();
       boolean var5 = var2 instanceof PlayerEntity;
+      boolean unknownHealth = UseItemUtils.method6536(var2);
       float var6 = MathHelper.clamp(UseItemUtils.method6527(var2), 0.0F, 999.0F);
       float var7 = Math.max(1.0F, var2.getMaxHealth());
-      float var8 = MathHelper.clamp(var6 / var7, 0.0F, 1.0F);
+      float var8 = unknownHealth ? 0.0F : MathHelper.clamp(var6 / var7, 0.0F, 1.0F);
       float var9 = MathHelper.clamp(this.animation.method2808(var8), 0.0F, 1.0F);
       float var10 = Math.max(0.0F, var6 - var7);
       float var11 = MathHelper.clamp(this.animation2.method2808(var10 / var7), 0.0F, 1.0F);
-      String var12 = String.valueOf(Math.round(var6));
+      String var12 = unknownHealth ? "?" : String.valueOf(Math.round(var6));
       Font var13 = HudListLayout.nameFont();
       Font var14 = Fonts.NEW_SEMIBOLD.getFont(7.5F);
       Font var15 = Fonts.NEW_MEDIUM.getFont(5.0F);
