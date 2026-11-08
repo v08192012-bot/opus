@@ -37,6 +37,7 @@ import org.zenith.utility.misc.ColorUtils;
 import org.zenith.utility.render.GlowUtil;
 import org.zenith.utility.render.ImmediateRenderer;
 import org.zenith.utility.render.MathUtils;
+import org.zenith.utility.render.TargetEspLightning;
 import org.zenith.utility.render.TargetEspTextures;
 import org.zenith.utility.render.TextureFilterUtils;
 import org.zenith.utility.render.display.base.MenuDrawContext;
@@ -65,9 +66,16 @@ public class TargetESPModule extends Module {
    private final ModeSetting.Entry entry5 = new ModeSetting.Entry(this.mode, "module.targetESP.helix");
    private final ModeSetting.Entry entry6 = new ModeSetting.Entry(this.mode, "module.targetESP.saturn");
    private final ModeSetting.Entry entry7 = new ModeSetting.Entry(this.mode, "module.targetESP.stars");
+   private final ModeSetting.Entry entry8 = new ModeSetting.Entry(this.mode, "module.targetESP.lightning");
    private final SliderSetting size = new SliderSetting("module.targetESP.size", 1.2F, 0.3F, 3.0F, 0.05F, "module.targetESP.size.desc", "x");
    private final SliderSetting speed = new SliderSetting("module.targetESP.speed", 1.0F, 0.0F, 4.0F, 0.05F, "module.targetESP.speed.desc", "x");
    private final BooleanSetting red = new BooleanSetting("module.targetESP.red", "module.targetESP.red.description", true);
+   private final SliderSetting lightningCount = new SliderSetting(
+      "module.targetESP.lightningCount", 4.0F, 1.0F, 10.0F, 1.0F, "module.targetESP.lightningCount.desc", ""
+   );
+   private final SliderSetting lightningWidth = new SliderSetting(
+      "module.targetESP.lightningWidth", 1.0F, 0.4F, 2.5F, 0.05F, "module.targetESP.lightningWidth.desc", "x"
+   );
    private final Animation animation = new Animation(250L, Easing.INSTANCE13);
    private final Random random = new Random();
    private final float[] floatValues = new float[3];
@@ -80,6 +88,7 @@ public class TargetESPModule extends Module {
    private final int[] intValues2 = new int[3];
    private final Matrix4f matrix4f = new Matrix4f();
    private final TargetEspTextures targetEspTextures = new TargetEspTextures();
+   private final TargetEspLightning lightning = new TargetEspLightning();
    private final int[] intValues3 = new int[4];
    private float floatValue;
    private long longValue;
@@ -107,6 +116,8 @@ public class TargetESPModule extends Module {
 
    private TargetESPModule() {
       this.method2163();
+      this.lightningCount.setVisible(this.entry8::isSelected);
+      this.lightningWidth.setVisible(this.entry8::isSelected);
    }
 
    private static Identifier[] method2147(String var0) {
@@ -130,6 +141,9 @@ public class TargetESPModule extends Module {
 
       this.method2162(var2);
       this.method2157();
+      if (!this.entry8.isSelected()) {
+         this.lightning.reset();
+      }
       if (mc.player != null && mc.world != null && this.livingEntity != null && !(this.animation.getValue() <= 0.01F)) {
          this.method2149(var1);
       }
@@ -181,7 +195,29 @@ public class TargetESPModule extends Module {
       boolean var33 = this.method2161();
       float var34 = this.animation.getValue();
       int var35 = this.method2156();
-      if (var35 >= 0) {
+      if (this.entry8.isSelected()) {
+         ZenithColor var39 = Zenith.getInstance().getStyleManager().getClientColor(90);
+         ZenithColor var40 = new ZenithColor(255, 255, 255, 255);
+         if (var24 > 0.0F) {
+            var39 = var39.method7295(ZenithColor.INSTANCE4, var24);
+            var40 = var40.method7295(ZenithColor.INSTANCE4, var24);
+         }
+
+         this.lightning
+            .render(
+               var30,
+               new Vec3d(var38, var18, var20),
+               var14,
+               var15,
+               var34,
+               var39.method7287(),
+               var40.method7287(),
+               this.lightningCount.getValue3(),
+               this.lightningWidth.getValue3() * (this.size.getValue3() / 1.2F),
+               this.speed.getValue3(),
+               var33
+            );
+      } else if (var35 >= 0) {
          this.targetEspTextures
             .method5054(
                var35,
@@ -361,7 +397,29 @@ public class TargetESPModule extends Module {
       float var13 = var6 * (float) (Math.PI / 180.0);
       float var14 = -var10 * (float) (Math.PI / 180.0);
       int var15 = this.method2156();
-      if (var15 >= 0) {
+      if (this.entry8.isSelected()) {
+         ZenithColor var17 = Zenith.getInstance().getStyleManager().getClientColor(90);
+         ZenithColor var18 = new ZenithColor(255, 255, 255, 255);
+         if (var9 > 0.0F) {
+            var17 = var17.method7295(ZenithColor.INSTANCE4, var9);
+            var18 = var18.method7295(ZenithColor.INSTANCE4, var9);
+         }
+
+         this.lightning
+            .render(
+               var12,
+               Vec3d.ZERO,
+               0.6F,
+               1.8F,
+               var8,
+               var17.method7287(),
+               var18.method7287(),
+               this.lightningCount.getValue3(),
+               this.lightningWidth.getValue3() * (this.size.getValue3() / 1.2F),
+               this.speed.getValue3(),
+               false
+            );
+      } else if (var15 >= 0) {
          this.targetEspTextures
             .method5054(
                var15,

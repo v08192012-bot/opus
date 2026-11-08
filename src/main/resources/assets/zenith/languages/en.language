@@ -371,6 +371,9 @@ module.targetESP.atom = Atom
 module.targetESP.helix = Helix
 module.targetESP.saturn = Saturn
 module.targetESP.stars = Stars
+module.targetESP.lightning = Lightning
+module.targetESP.lightningCount = Bolt count
+module.targetESP.lightningWidth = Bolt width
 module.targetESP.description = Renders an effect on the target
 module.targetESP.texture = Texture
 module.targetESP.texture.vortex = Vortex
@@ -740,6 +743,8 @@ module.boneMealFarmer.crop.desc = Crop to grow with bone meal
 module.targetESP.texture.desc = Target effect texture
 module.targetESP.size.desc = Target effect scale
 module.targetESP.speed.desc = Effect animation speed
+module.targetESP.lightningCount.desc = How many bolts strike around the target at once
+module.targetESP.lightningWidth.desc = Thickness of the bolts: 1 is the default look
 
 
 module.autoWeb.searchXZ.desc = Search radius on XZ

@@ -421,6 +421,9 @@ module.targetESP.atom = Atom
 module.targetESP.helix = Spirala
 module.targetESP.saturn = Saturn
 module.targetESP.stars = Gwiazdy
+module.targetESP.lightning = Błyskawice
+module.targetESP.lightningCount = Liczba błyskawic
+module.targetESP.lightningWidth = Grubość błyskawic
 module.targetESP.description = Wyświetla efekt na celu
 module.targetESP.texture = Tekstura
 module.targetESP.texture.vortex = Wir
@@ -794,6 +797,8 @@ module.boneMealFarmer.crop.desc = Crop to grow with bone meal
 module.targetESP.texture.desc = Tekstura efektu celu
 module.targetESP.size.desc = Skala efektu celu
 module.targetESP.speed.desc = Szybkość animacji efektu
+module.targetESP.lightningCount.desc = Ile wyładowań uderza wokół celu jednocześnie
+module.targetESP.lightningWidth.desc = Grubość wyładowań: 1 to wygląd domyślny
 
 
 module.autoWeb.searchXZ.desc = Search radius on XZ

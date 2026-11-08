@@ -65,6 +65,7 @@ jobs:
           unzip -l "$JAR" | grep -q "org/zenith/utility/mixin/render/MixinEntityRenderManager.class" || { echo "::error::MixinEntityRenderManager не попал в jar"; exit 1; }
           unzip -l "$JAR" | grep -q "org/zenith/client/modules/impl/movement/WindHopModule.class" || { echo "::error::WindHopModule не попал в jar"; exit 1; }
           unzip -l "$JAR" | grep -q "org/zenith/utility/game/NameTagHealth.class" || { echo "::error::NameTagHealth не попал в jar"; exit 1; }
+          unzip -l "$JAR" | grep -q "org/zenith/utility/render/TargetEspLightning.class" || { echo "::error::TargetEspLightning не попал в jar"; exit 1; }
 
           {
             echo "### Собранный jar"

@@ -358,6 +358,9 @@ module.targetESP.atom = Atom
 module.targetESP.helix = Sarmal
 module.targetESP.saturn = Satürn
 module.targetESP.stars = Yıldızlar
+module.targetESP.lightning = Yıldırımlar
+module.targetESP.lightningCount = Yıldırım sayısı
+module.targetESP.lightningWidth = Yıldırım kalınlığı
 module.targetESP.description = Hedef üzerinde efekt gösterir
 module.targetESP.texture = Doku
 module.targetESP.texture.vortex = Girdap
@@ -726,6 +729,8 @@ module.boneMealFarmer.crop.desc = Crop to grow with bone meal
 module.targetESP.texture.desc = Hedef efekti dokusu
 module.targetESP.size.desc = Hedef efekti ölçeği
 module.targetESP.speed.desc = Efekt animasyon hızı
+module.targetESP.lightningCount.desc = Hedefin etrafında aynı anda kaç yıldırım çakacağı
+module.targetESP.lightningWidth.desc = Yıldırımların kalınlığı: 1 varsayılan görünüm
 
 
 module.autoWeb.searchXZ.desc = Search radius on XZ

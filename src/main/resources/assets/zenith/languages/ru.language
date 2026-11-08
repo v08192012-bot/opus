@@ -390,6 +390,9 @@ module.targetESP.atom = Атом
 module.targetESP.helix = Спираль
 module.targetESP.saturn = Сатурн
 module.targetESP.stars = Звёзды
+module.targetESP.lightning = Молнии
+module.targetESP.lightningCount = Кол-во молний
+module.targetESP.lightningWidth = Толщина молний
 module.targetESP.description = Отображает эффект на цели
 module.targetESP.texture = Текстура
 module.targetESP.texture.vortex = Вихрь
@@ -763,6 +766,8 @@ module.boneMealFarmer.crop.desc = Культура для выращивания
 module.targetESP.texture.desc = Выбор текстуры эффекта цели
 module.targetESP.size.desc = Масштаб эффекта цели
 module.targetESP.speed.desc = Скорость анимации эффекта
+module.targetESP.lightningCount.desc = Сколько разрядов бьёт вокруг цели одновременно
+module.targetESP.lightningWidth.desc = Толщина разрядов: 1 — как в оригинале
 
 
 module.autoWeb.searchXZ.desc = Радиус поиска по XZ
