@@ -42,6 +42,13 @@ public final class AiStreamClient {
    public static String method4739(
       ShownProvider var0, String var1, String var2, String var3, String var4, List<AiStreamClient.Data> var5, Consumer<String> var6, BooleanSupplier var7
    ) throws IOException, InterruptedException {
+      // Локальная Ollama ходит через свой /api/chat: только там можно задать num_ctx.
+      // OpenAI-совместимый путь режет промпт до дефолтных 4096 токенов, из-за чего
+      // справочник API и правила отваливаются, а модель просто переспрашивает.
+      if (method4750(var0)) {
+         return method4752(method4751(var0, var1, var2, var3, var4), var6, var7);
+      }
+
       HttpRequest var8 = switch (var0.getType()) {
          case ANTHROPIC -> method4744(var1, var2, var3, var4, var5);
          case GEMINI -> method4746(var1, var2, var3, var4, var5);
@@ -381,6 +388,175 @@ public final class AiStreamClient {
          .header("x-goog-api-key", var0)
          .POST(BodyPublishers.ofString(var5.toString(), StandardCharsets.UTF_8))
          .build();
+   }
+
+   // --- локальная Ollama -------------------------------------------------
+
+   /** Локальный сервер Ollama (127.0.0.1:11434 и т.п.) — у него есть нативный /api/chat. */
+   private static boolean method4750(ShownProvider var0) {
+      if (var0 == null || var0.getType() != ShownProvider.Type.OPENAI) {
+         return false;
+      }
+
+      String var1 = var0.getText4();
+      if (var1 == null || var1.isBlank()) {
+         return false;
+      }
+
+      try {
+         URI var2 = URI.create(var1.strip());
+         String var3 = var2.getHost();
+         if (var3 == null) {
+            return false;
+         }
+
+         boolean var4 = var3.equals("127.0.0.1")
+            || var3.equalsIgnoreCase("localhost")
+            || var3.equals("0.0.0.0")
+            || var3.equals("::1")
+            || var3.equals("[::1]");
+         return var4 && var2.getPort() == 11434;
+      } catch (RuntimeException var5) {
+         return false;
+      }
+   }
+
+   private static HttpRequest method4751(ShownProvider var0, String var1, String var2, String var3, List<AiStreamClient.Data> var4) {
+      JsonObject var5 = new JsonObject();
+      var5.addProperty("model", AiSettingsStore.clean(var2));
+      var5.addProperty("stream", true);
+      JsonArray var6 = new JsonArray();
+      JsonObject var7 = new JsonObject();
+      var7.addProperty("role", "system");
+      // /no_think — для qwen3 и подобных: без него модель тратит ответ на размышления
+      var7.addProperty("content", (var3 == null ? "" : var3) + "\n\n/no_think");
+      var6.add(var7);
+
+      for (AiStreamClient.Data var9 : var4) {
+         JsonObject var10 = new JsonObject();
+         var10.addProperty("role", var9.isFlag() ? "user" : "assistant");
+         var10.addProperty("content", var9.text() == null ? "" : var9.text());
+         if (!var9.getItems().isEmpty()) {
+            JsonArray var11 = new JsonArray();
+
+            for (AiStreamClient.Data2 var13 : var9.getItems()) {
+               var11.add(var13.getText2());
+            }
+
+            var10.add("images", var11);
+         }
+
+         var6.add(var10);
+      }
+
+      var5.add("messages", var6);
+      JsonObject var14 = new JsonObject();
+      var14.addProperty("num_ctx", method4753(var3, var4));
+      var14.addProperty("num_predict", 8192);
+      var14.addProperty("temperature", 0.3);
+      var5.add("options", var14);
+      return HttpRequest.newBuilder(URI.create(method4754(var0.getText4())))
+         .timeout(Duration.ofMinutes(10L))
+         .header("Content-Type", "application/json")
+         .POST(BodyPublishers.ofString(var5.toString(), StandardCharsets.UTF_8))
+         .build();
+   }
+
+   /** Размер контекста под сам промпт: справочник API + история не должны обрезаться. */
+   private static int method4753(String var0, List<AiStreamClient.Data> var1) {
+      long var2 = var0 == null ? 0L : var0.length();
+
+      for (AiStreamClient.Data var5 : var1) {
+         var2 += var5.text() == null ? 0L : var5.text().length();
+         var2 += (long) var5.getItems().size() * 1600L;
+      }
+
+      long var7 = var2 / 2L;
+      var7 += var7 / 4L;
+      long var9 = (var7 + 4096L + 4095L) / 4096L * 4096L;
+      return (int) Math.max(8192L, Math.min(32768L, var9));
+   }
+
+   /** .../v1/chat/completions → .../api/chat. */
+   private static String method4754(String var0) {
+      String var1 = var0 == null ? "" : var0.strip();
+
+      while (var1.endsWith("/")) {
+         var1 = var1.substring(0, var1.length() - 1);
+      }
+
+      if (var1.endsWith("/chat/completions")) {
+         var1 = var1.substring(0, var1.length() - "/chat/completions".length());
+      }
+
+      while (var1.endsWith("/")) {
+         var1 = var1.substring(0, var1.length() - 1);
+      }
+
+      if (var1.endsWith("/v1")) {
+         var1 = var1.substring(0, var1.length() - 3);
+      }
+
+      return var1 + "/api/chat";
+   }
+
+   private static String method4752(HttpRequest var0, Consumer<String> var1, BooleanSupplier var2) throws IOException, InterruptedException {
+      HttpResponse var3 = method4740(httpClient.sendAsync(var0, BodyHandlers.ofInputStream()), var2);
+      StringBuilder var4 = new StringBuilder();
+      if (var3 == null) {
+         return var4.toString();
+      }
+
+      AtomicBoolean var5 = new AtomicBoolean();
+
+      try (
+         InputStream var6 = (InputStream)var3.body();
+         BufferedReader var7 = new BufferedReader(new InputStreamReader(var6, StandardCharsets.UTF_8));
+      ) {
+         method4742(var6, var2, var5);
+         if (var3.statusCode() / 100 != 2) {
+            StringBuilder var8 = new StringBuilder();
+            String var9;
+            while ((var9 = method4743(var7, var2)) != null && var8.length() < 8000) {
+               var8.append(var9).append('\n');
+            }
+
+            throw new AiStreamClient.Entry(method4747(var3.statusCode(), var8.toString()));
+         }
+
+         String var10;
+         while ((var10 = method4743(var7, var2)) != null && !var2.getAsBoolean()) {
+            String var11 = var10.strip();
+            if (var11.isEmpty()) {
+               continue;
+            }
+
+            JsonObject var12;
+            try {
+               var12 = JsonParser.parseString(var11).getAsJsonObject();
+            } catch (RuntimeException var18) {
+               continue;
+            }
+
+            if (var12.has("error")) {
+               throw new AiStreamClient.Entry(method4748(var12));
+            }
+
+            if (!var12.has("message") || !var12.get("message").isJsonObject()) {
+               continue;
+            }
+
+            String var13 = method4749(var12.getAsJsonObject("message"), "content");
+            if (!var13.isEmpty()) {
+               var4.append(var13);
+               var1.accept(var13);
+            }
+         }
+      } finally {
+         var5.set(true);
+      }
+
+      return var4.toString();
    }
 
    private static String method4747(int var0, String var1) {

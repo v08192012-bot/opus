@@ -477,6 +477,10 @@ public final class AiChatStorage {
                   }
 
                   this.revision++;
+                  if (!this.flag && var9.error.isEmpty() && var9.text().isBlank()) {
+                     var9.error = "модель ответила пусто (контекст или модель) — нажми ещё раз или возьми модель побольше";
+                  }
+
                   if (!this.flag && !var2.deleted && var9.error.isEmpty() && !var9.method2775().isEmpty() && AiSettingsStore.method4467().isFlag2()) {
                      MinecraftClient.getInstance().execute(() -> {
                         if (!var2.deleted) {
