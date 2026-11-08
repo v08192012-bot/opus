@@ -46,7 +46,7 @@ public final class AiStreamClient {
       // OpenAI-совместимый путь режет промпт до дефолтных 4096 токенов, из-за чего
       // справочник API и правила отваливаются, а модель просто переспрашивает.
       if (method4750(var0)) {
-         return method4752(method4751(var0, var1, var2, var3, var4), var6, var7);
+         return method4752(method4751(var0, var1, var2, var3, var4, var5), var6, var7);
       }
 
       HttpRequest var8 = switch (var0.getType()) {
@@ -421,44 +421,46 @@ public final class AiStreamClient {
       }
    }
 
-   private static HttpRequest method4751(ShownProvider var0, String var1, String var2, String var3, List<AiStreamClient.Data> var4) {
-      JsonObject var5 = new JsonObject();
-      var5.addProperty("model", AiSettingsStore.clean(var2));
-      var5.addProperty("stream", true);
-      JsonArray var6 = new JsonArray();
-      JsonObject var7 = new JsonObject();
-      var7.addProperty("role", "system");
+   private static HttpRequest method4751(
+      ShownProvider var0, String var1, String var2, String var3, String var4, List<AiStreamClient.Data> var5
+   ) {
+      JsonObject var6 = new JsonObject();
+      var6.addProperty("model", AiSettingsStore.clean(var2));
+      var6.addProperty("stream", true);
+      JsonArray var7 = new JsonArray();
+      JsonObject var8 = new JsonObject();
+      var8.addProperty("role", "system");
       // /no_think — для qwen3 и подобных: без него модель тратит ответ на размышления
-      var7.addProperty("content", (var3 == null ? "" : var3) + "\n\n/no_think");
-      var6.add(var7);
+      var8.addProperty("content", (var4 == null ? "" : var4) + "\n\n/no_think");
+      var7.add(var8);
 
-      for (AiStreamClient.Data var9 : var4) {
-         JsonObject var10 = new JsonObject();
-         var10.addProperty("role", var9.isFlag() ? "user" : "assistant");
-         var10.addProperty("content", var9.text() == null ? "" : var9.text());
-         if (!var9.getItems().isEmpty()) {
-            JsonArray var11 = new JsonArray();
+      for (AiStreamClient.Data var10 : var5) {
+         JsonObject var11 = new JsonObject();
+         var11.addProperty("role", var10.isFlag() ? "user" : "assistant");
+         var11.addProperty("content", var10.text() == null ? "" : var10.text());
+         if (!var10.getItems().isEmpty()) {
+            JsonArray var12 = new JsonArray();
 
-            for (AiStreamClient.Data2 var13 : var9.getItems()) {
-               var11.add(var13.getText2());
+            for (AiStreamClient.Data2 var14 : var10.getItems()) {
+               var12.add(var14.getText2());
             }
 
-            var10.add("images", var11);
+            var11.add("images", var12);
          }
 
-         var6.add(var10);
+         var7.add(var11);
       }
 
-      var5.add("messages", var6);
-      JsonObject var14 = new JsonObject();
-      var14.addProperty("num_ctx", method4753(var3, var4));
-      var14.addProperty("num_predict", 8192);
-      var14.addProperty("temperature", 0.3);
-      var5.add("options", var14);
+      var6.add("messages", var7);
+      JsonObject var15 = new JsonObject();
+      var15.addProperty("num_ctx", method4753(var4, var5));
+      var15.addProperty("num_predict", 8192);
+      var15.addProperty("temperature", 0.3);
+      var6.add("options", var15);
       return HttpRequest.newBuilder(URI.create(method4754(var0.getText4())))
          .timeout(Duration.ofMinutes(10L))
          .header("Content-Type", "application/json")
-         .POST(BodyPublishers.ofString(var5.toString(), StandardCharsets.UTF_8))
+         .POST(BodyPublishers.ofString(var6.toString(), StandardCharsets.UTF_8))
          .build();
    }
 
