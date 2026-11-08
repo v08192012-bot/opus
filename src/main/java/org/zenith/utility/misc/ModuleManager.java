@@ -111,6 +111,8 @@ import org.zenith.client.modules.impl.movement.TimerModule;
 import org.zenith.client.modules.impl.movement.VelocityModule;
 import org.zenith.client.modules.impl.movement.WallBypassModule;
 import org.zenith.client.modules.impl.movement.WaterRiseModule;
+import org.zenith.client.modules.impl.movement.WindHopModule;
+import org.zenith.client.modules.impl.movement.WaterRiseModule;
 import org.zenith.client.modules.impl.player.AHHelperModule;
 import org.zenith.client.modules.impl.player.AncientFarmModule;
 import org.zenith.client.modules.impl.player.AppleFarmModule;
@@ -234,6 +236,7 @@ public final class ModuleManager implements MinecraftAccess {
       this.method2481(StrafeModule.INSTANCE);
       this.method2481(AirStuckModule.INSTANCE);
       this.method2481(WallBypassModule.INSTANCE);
+      this.method2481(WindHopModule.INSTANCE);
    }
 
    private void method2478() {
