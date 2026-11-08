@@ -142,6 +142,26 @@ public final class NameTagHealth {
          return UNKNOWN;
       }
 
+      // неймтег может быть многострочным: ник в одной строке, «20 Здоровья» в другой
+      if (raw.indexOf('\n') >= 0) {
+         for (String var0 : raw.split("\\n")) {
+            float var1 = parseLine(var0, allowBareNumber);
+            if (!Float.isNaN(var1)) {
+               return var1;
+            }
+         }
+
+         return UNKNOWN;
+      }
+
+      return parseLine(raw, allowBareNumber);
+   }
+
+   private static float parseLine(String raw, boolean allowBareNumber) {
+      if (raw == null || raw.isEmpty()) {
+         return UNKNOWN;
+      }
+
       String var2 = ColorUtils.method6438(raw);
       if (var2 == null) {
          return UNKNOWN;
@@ -152,26 +172,43 @@ public final class NameTagHealth {
          return UNKNOWN;
       }
 
-      boolean var3 = HEALTH_HINT.matcher(var2).find();
-      if (!var3) {
-         if (!allowBareNumber || !NUMBER.matcher(var2).matches()) {
-            return UNKNOWN;
-         }
+      Matcher var3 = HEALTH_HINT.matcher(var2);
+      boolean var4 = var3.find();
+      if (!var4 && (!allowBareNumber || !NUMBER.matcher(var2).matches())) {
+         return UNKNOWN;
       }
 
-      Matcher var4 = NUMBER.matcher(var2);
+      int var5 = var4 ? var3.start() : -1;
+      int var6 = var4 ? var3.end() : -1;
+      float var7 = UNKNOWN;
+      int var8 = Integer.MAX_VALUE;
+      Matcher var9 = NUMBER.matcher(var2);
 
-      while (var4.find()) {
+      while (var9.find()) {
+         float var10;
          try {
-            float var5 = Float.parseFloat(var4.group().replace(',', '.'));
-            if (var5 >= 0.0F && var5 <= 1000.0F) {
-               return var5;
-            }
-         } catch (NumberFormatException var6) {
+            var10 = Float.parseFloat(var9.group().replace(',', '.'));
+         } catch (NumberFormatException var11) {
+            continue;
+         }
+
+         if (var10 < 0.0F || var10 > 1000.0F) {
+            continue;
+         }
+
+         if (!var4) {
+            return var10;
+         }
+
+         // берём число рядом с подписью: в нике могут быть свои цифры («Player123 Здоровья 20»)
+         int var12 = var9.end() <= var5 ? var5 - var9.end() : (var9.start() >= var6 ? var9.start() - var6 : 0);
+         if (var12 < var8) {
+            var8 = var12;
+            var7 = var10;
          }
       }
 
-      return UNKNOWN;
+      return var7;
    }
 
    private static final class Cached {
