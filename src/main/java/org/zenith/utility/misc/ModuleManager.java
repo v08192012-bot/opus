@@ -146,6 +146,7 @@ import org.zenith.client.modules.impl.render.HandsModule;
 import org.zenith.client.modules.impl.render.HitParticlesModule;
 import org.zenith.client.modules.impl.render.InterfaceModule;
 import org.zenith.client.modules.impl.render.JumpCircleModule;
+import org.zenith.client.modules.impl.render.KaraokeModule;
 import org.zenith.client.modules.impl.render.MenuModule;
 import org.zenith.client.modules.impl.render.NoRenderModule;
 import org.zenith.client.modules.impl.render.OptimizationModule;
@@ -273,6 +274,7 @@ public final class ModuleManager implements MinecraftAccess {
       this.method2481(ParticlesModule.INSTANCE);
       this.method2481(ViewArmorDurabilityModule.INSTANCE);
       this.method2481(FireWorkESPModule.INSTANCE);
+      this.method2481(KaraokeModule.INSTANCE);
    }
 
    private void method2479() {
