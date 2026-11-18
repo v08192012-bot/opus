@@ -252,7 +252,7 @@ public class KaraokeModule extends Module {
             ctx.drawText(var30, var31, var33, var34, new ZenithColor(255, 255, 255, (int)(70.0F * var22)));
             if (var40 > 0) {
                String var41 = var31.substring(0, Math.min(var40, var31.length()));
-               ctx.drawText(var30, var41, var33, var34, var37);
+               ctx.drawText(var30, var41, var33, var34, new ZenithColor(var37));
             }
 
             // полоска прогресса строки под текстом
@@ -266,9 +266,7 @@ public class KaraokeModule extends Module {
                );
             }
          } else {
-            ctx.drawText(var30, var31, var33, var34, var19 ? var36 : new ZenithColor(
-               (var48 >> 16) & 0xFF, (var48 >> 8) & 0xFF, var48 & 0xFF, (var48 >>> 24) & 0xFF
-            ));
+            ctx.drawText(var30, var31, var33, var34, new ZenithColor(var19 ? var36 : var48));
          }
       }
    }
